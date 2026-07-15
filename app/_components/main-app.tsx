@@ -1,13 +1,17 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Crown, ChevronRight, Plus, Trophy, AlertTriangle, Star, CalendarDays, MapPin, Check, Settings, X, LogOut, Images, Upload, Zap } from 'lucide-react'
+import { Crown, ChevronRight, Plus, Trophy, AlertTriangle, Star, CalendarDays, MapPin, Check, Settings, X, LogOut, Images, Upload, Zap, ZapOff, Volume2, VolumeX } from 'lucide-react'
 import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { members as initialMembers, getCurrentCycleInfo, getStatusColor, ROTATION_ORDER, getMemberRank } from '@/lib/data'
 import { groupConfig, isAdmin as isGroupAdmin } from '@/config/group'
+import { resolveTheme } from '@/config/theme'
+import { usePreferences } from '@/lib/preferences'
+import { useSound } from '@/lib/use-sound'
+import { useCountUp } from '@/lib/use-count-up'
 import { Member, Event, Fine, EventProposal } from '@/lib/types'
 import { supabase } from '@/lib/supabase'
 import { logoutAction } from '@/app/actions/auth'
@@ -30,6 +34,19 @@ import {
 } from '@/app/actions/db'
 
 const SCORE_ADJUSTMENT_PREFIX = '__score_adjustment__'
+
+// Active theme colours (confetti palette etc.)
+const themeColors = resolveTheme(groupConfig.theme)
+
+// Leaderboard score that counts up when it changes.
+function AnimatedScore({ value }: { value: number }) {
+  const display = useCountUp(value)
+  return (
+    <span className={`text-sm font-semibold tabular-nums ${value < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+      {value > 0 ? '+' : ''}{display} score
+    </span>
+  )
+}
 
 interface MainAppProps {
   currentUser: string
@@ -70,19 +87,23 @@ export function MainApp({ currentUser }: MainAppProps) {
   const isAdmin = isGroupAdmin(currentUser)
   const [rippleCell, setRippleCell] = useState<string | null>(null)
 
+  // Per-user preferences (sound mute + reduced motion) and sound player
+  const { muted, toggleMuted, reduceMotion, toggleReduceMotion } = usePreferences()
+  const playSound = useSound()
+
   // Detonate override (persisted in DB)
   const [detonateOverride, setDetonateOverride] = useState<{ organiser: string; endDate: string } | null>(null)
   const [showDetonateConfirm, setShowDetonateConfirm] = useState(false)
   const [detonating, setDetonating] = useState(false)
 
-  // Confetti burst when celebration modal opens
+  // Confetti burst when celebration modal opens (skipped in reduced motion)
   useEffect(() => {
-    if (!showEventComplete) return
-    const burst = () => confetti({ particleCount: 120, spread: 80, origin: { y: 0.4 }, colors: ['#d4af37', '#fff', '#ff4444', '#22c55e'] })
+    if (!showEventComplete || reduceMotion) return
+    const burst = () => confetti({ particleCount: 120, spread: 80, origin: { y: 0.4 }, colors: themeColors.confetti })
     burst()
     const t = setTimeout(burst, 400)
     return () => clearTimeout(t)
-  }, [showEventComplete])
+  }, [showEventComplete, reduceMotion])
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -448,6 +469,7 @@ export function MainApp({ currentUser }: MainAppProps) {
     setCurrentProposal(null)
     setShowVoting(false)
     setShowEventComplete(true)
+    playSound('confirm')
     await loadData()
   }
 
@@ -455,6 +477,7 @@ export function MainApp({ currentUser }: MainAppProps) {
     try {
       await payFineAction(fineId)
       setFinesState(prev => prev.map(f => f.id === fineId ? { ...f, paid: true } : f))
+      playSound('fine')
       await loadData()
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to verify fine payment')
@@ -476,6 +499,7 @@ export function MainApp({ currentUser }: MainAppProps) {
     if ('error' in result) {
       alert('Detonate failed: ' + result.error)
     } else {
+      playSound('detonate')
       setShowDetonateConfirm(false)
       await loadData()
     }
@@ -592,8 +616,22 @@ export function MainApp({ currentUser }: MainAppProps) {
                 <p className="text-xs text-muted-foreground">Cycle {cycleInfo.cycleNumber}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-muted-foreground">{currentUser}</span>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground mr-1">{currentUser}</span>
+              <button
+                onClick={toggleReduceMotion}
+                title={reduceMotion ? 'Motion reduced — tap to enable animations' : 'Reduce motion'}
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+              >
+                {reduceMotion ? <ZapOff className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={toggleMuted}
+                title={muted ? 'Sound off — tap to unmute' : 'Mute sound'}
+                className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+              >
+                {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </button>
               <form action={logoutAction}>
                 <Button variant="ghost" size="sm" type="submit" title="Log out" className="text-muted-foreground hover:text-foreground">
                   <LogOut className="w-4 h-4" />
@@ -650,8 +688,13 @@ export function MainApp({ currentUser }: MainAppProps) {
 
         {/* Current Organiser Card */}
         <div className="relative glass-card rounded-xl overflow-hidden animate-breathe" style={{boxShadow: '0 0 20px 4px rgba(212,175,55,0.25)'}}>
-          {/* Background group photo */}
-          {groupConfig.groupPhoto ? (
+          {/* Background: video > group photo > gradient */}
+          {groupConfig.media.heroVideo ? (
+            <>
+              <video className="bg-video" src={groupConfig.media.heroVideo} autoPlay muted loop playsInline />
+              <div className="absolute inset-0 bg-black/70" />
+            </>
+          ) : groupConfig.groupPhoto ? (
             <>
               <img src={groupConfig.groupPhoto} alt="" className="absolute inset-0 w-full h-full object-cover object-center" />
               <div className="absolute inset-0 bg-black/70" />
@@ -792,7 +835,18 @@ export function MainApp({ currentUser }: MainAppProps) {
         {showDetonateConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm px-4">
             <div className="glass-card rounded-2xl p-6 w-full max-w-sm border border-red-500/50 shadow-2xl space-y-4 text-center">
-              <div className="text-5xl animate-bomb-shake">💣</div>
+              {groupConfig.media.detonateVideo ? (
+                <video
+                  className="w-full rounded-xl overflow-hidden aspect-video object-cover"
+                  src={groupConfig.media.detonateVideo}
+                  autoPlay
+                  muted={muted}
+                  loop
+                  playsInline
+                />
+              ) : (
+                <div className="text-5xl animate-bomb-shake">💣</div>
+              )}
               <div>
                 <h2 className="text-xl font-bold text-red-400 uppercase tracking-wide">Detonate {currentOrganiser}?</h2>
                 <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
@@ -849,7 +903,17 @@ export function MainApp({ currentUser }: MainAppProps) {
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
               <div className="glass-card rounded-2xl p-6 w-full max-w-sm border border-primary/50 shadow-2xl space-y-5 text-center">
-                <div className="text-5xl">🎉</div>
+                {groupConfig.media.celebrationVideo ? (
+                  <video
+                    className="w-full rounded-xl overflow-hidden aspect-video object-cover"
+                    src={groupConfig.media.celebrationVideo}
+                    autoPlay
+                    muted={muted}
+                    playsInline
+                  />
+                ) : (
+                  <div className="text-5xl">🎉</div>
+                )}
                 <div>
                   <h2 className="text-2xl font-bold text-gold-gradient mb-1">It&apos;s ON!</h2>
                   <p className="text-lg font-semibold">{confirmedEvent.title}</p>
@@ -1215,9 +1279,10 @@ export function MainApp({ currentUser }: MainAppProps) {
             {leaderboard.map((member, index) => (
               <div
                 key={member.id}
-                className={`flex items-center justify-between p-3 rounded-lg ${
+                className={`stagger-in flex items-center justify-between p-3 rounded-lg ${
                   index === 0 ? 'bg-primary/10 border border-primary/30' : 'bg-muted/30'
                 }`}
+                style={{ animationDelay: `${index * 60}ms` }}
               >
                 <div className="flex items-center gap-3">
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -1263,9 +1328,7 @@ export function MainApp({ currentUser }: MainAppProps) {
                       </Button>
                     </div>
                   )}
-                  <span className={`text-sm font-semibold ${member.score < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {member.score > 0 ? '+' : ''}{member.score} score
-                  </span>
+                  <AnimatedScore value={member.score} />
                 </div>
               </div>
             ))}

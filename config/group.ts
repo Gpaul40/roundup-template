@@ -6,6 +6,8 @@
 //  .env.example (one PASSWORD_<NAME> per member below).
 // ═══════════════════════════════════════════════════════════════════════════
 
+import type { ThemeConfig } from './theme'
+
 export const groupConfig = {
   // ── Branding ──────────────────────────────────────────────────────────────
   appName: 'The Roundup',
@@ -70,6 +72,52 @@ export const groupConfig = {
   // ── Locale ────────────────────────────────────────────────────────────────
   // Used for date formatting, e.g. 'en-AU', 'en-GB', 'en-US'.
   dateLocale: 'en-AU',
+
+  // ── Theme ─────────────────────────────────────────────────────────────────
+  // Recolour the whole app with one line. Built-in presets:
+  //   'gold' (default) · 'neon' · 'ocean' · 'crimson' · 'grape' · 'mono'
+  // Or set preset: 'custom' and provide your own colours (see config/theme.ts
+  // for the shape — primary/secondary are CSS oklch(), brandRgb is "r,g,b").
+  theme: {
+    preset: 'gold',
+    // Example custom theme:
+    // preset: 'custom',
+    // primary: 'oklch(0.8 0.15 200)',
+    // secondary: 'oklch(0.6 0.2 300)',
+    // brandRgb: '56,199,236',
+    // accentRgb: '147,51,234',
+    // gradient: ['#38c7ec', '#7ee8ff'],
+    // confetti: ['#38c7ec', '#ffffff', '#4e6ef2'],
+  } as ThemeConfig,
+
+  // ── Media (optional videos) ────────────────────────────────────────────────
+  // Drop video files in /public/videos and reference them here. Every field is
+  // optional — leave as null to fall back to images / plain backgrounds.
+  // Videos autoplay muted + looped, so use short, light clips (a few MB).
+  media: {
+    // Looping background behind the login screen.
+    loginVideo: null as string | null,
+    // Looping background behind the Current Organiser card
+    // (overrides groupPhoto above when set).
+    heroVideo: null as string | null,
+    // Plays once in the "It's ON!" modal when an event is confirmed.
+    celebrationVideo: null as string | null,
+    // Plays once in the detonate confirmation modal.
+    detonateVideo: null as string | null,
+  },
+
+  // ── Sound effects (optional) ───────────────────────────────────────────────
+  // Drop short .mp3 files in /public/sounds and reference them here. Users can
+  // mute in-app (🔊 button in the header). All optional and fail silently.
+  sounds: {
+    enabled: true,
+    volume: 0.6,
+    files: {
+      confirm: null as string | null,   // event confirmed
+      detonate: null as string | null,  // detonate switch fired
+      fine: null as string | null,      // fine verified / paid
+    },
+  },
 
   // ── Rank system ───────────────────────────────────────────────────────────
   // Members earn a rank based on events organised vs fines collected.

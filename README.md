@@ -21,6 +21,11 @@ Built with Next.js + Supabase. Free to run (Vercel free tier + Supabase free tie
 - 📸 **Photo galleries** for every event + member avatars
 - 💥 **Detonate switch** — blow up a slacking organiser's turn early (fine included)
 - 🔐 Simple password login per member (no signup flow to babysit)
+- 🎨 **Theme presets** — recolour the whole app with one line (`gold`, `neon`, `ocean`, `crimson`, `grape`, `mono`, or fully custom)
+- 🎬 **Optional videos** — looping backgrounds on login/hero and hype clips on confirm/detonate
+- 🔊 **Optional sound effects** with a per-user mute toggle
+- ♿ **Reduced-motion support** — respects the OS setting and has an in-app toggle
+- ✨ Animated countdown flips, breathing cards, count-up leaderboard, staggered entrances
 
 ## 🚀 Set it up for your group (~15 minutes)
 
@@ -40,7 +45,22 @@ Edit **`config/group.ts`** — it's the only file you need to touch:
 - `cycleDays` — how long each person gets: `7` (weekly), `14` (fortnightly), `30` (monthly)… your call
 - `fineAmount` / `currency` — the price of failure
 - `fineFund` — your house rules for what happens with the money
+- `theme` — pick a colour preset (`gold`, `neon`, `ocean`, `crimson`, `grape`, `mono`) or go `custom`
+- `media` — optional video paths (login/hero backgrounds, confirm/detonate clips)
+- `sounds` — optional sound-effect paths + volume
 - `ranks`, `howItWorks`, etc. — flavour text to make it yours
+
+**Theme:** change `theme.preset` and the entire app recolours — glows, gradients,
+buttons, confetti, everything. For a bespoke palette set `preset: 'custom'` and
+supply your own colours (the shape is documented in `config/theme.ts`).
+
+**Videos (optional):** drop short `.mp4` files in `public/videos/` and point to
+them from `media` in the config. Background videos autoplay muted + looped;
+keep them small (a few MB). Leave any field `null` to fall back to images.
+
+**Sounds (optional):** drop short `.mp3` files in `public/sounds/` and reference
+them from `sounds.files`. Members can mute with the 🔊 button in the header.
+See the READMEs in `public/videos/` and `public/sounds/` for exact filenames.
 
 ### 3. Create the database (Supabase, free)
 

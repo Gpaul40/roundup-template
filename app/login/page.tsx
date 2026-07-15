@@ -23,8 +23,22 @@ export default function LoginPage() {
   )
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="glass-card rounded-2xl p-8 max-w-sm w-full text-center space-y-6 animate-slide-up">
+    <div className="relative min-h-screen bg-background flex items-center justify-center p-4 overflow-hidden">
+      {/* Optional looping background video */}
+      {groupConfig.media.loginVideo && (
+        <>
+          <video
+            className="bg-video"
+            src={groupConfig.media.loginVideo}
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+          <div className="absolute inset-0 bg-black/70" />
+        </>
+      )}
+      <div className="relative z-10 glass-card rounded-2xl p-8 max-w-sm w-full text-center space-y-6 animate-slide-up">
         <div className="w-20 h-20 mx-auto rounded-full bg-primary/20 flex items-center justify-center glow-gold">
           <Crown className="w-10 h-10 text-primary" />
         </div>
